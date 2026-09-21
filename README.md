@@ -27,7 +27,7 @@ disparaissent à la fermeture de la page.
 4. Attendez une à deux minutes. L'adresse publique s'affiche en haut de cette
    même page, sous la forme :
 
-   `https://<votre-identifiant-github>.github.io/questionnaire-15issq/`
+   `https://guillaumeandeol.github.io/questionnaire-15issq/`
 
 C'est cette adresse à communiquer aux collègues et aux participants.
 
@@ -39,11 +39,18 @@ git init
 git add .
 git commit -m "Questionnaire 15iSSQ"
 git branch -M main
-git remote add origin https://github.com/<votre-identifiant>/questionnaire-15issq.git
+git remote add origin https://github.com/guillaumeandeol/questionnaire-15issq.git
 git push -u origin main
 ```
 
 Puis effectuez l'étape 3 ci-dessus.
+
+## Adresse publique
+
+https://guillaumeandeol.github.io/questionnaire-15issq/
+
+Le QR code correspondant est fourni dans ce dossier
+(`QR_15iSSQ_github.svg` pour l'impression, `QR_15iSSQ_github.png` pour l'écran).
 
 ## Mise à jour
 
