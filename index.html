@@ -132,6 +132,18 @@
   .gaugekey .s-lim{width:1px;height:14px;background:#a3b3bd}
   .gaugekey .s-you{width:12px;height:12px;border-radius:50%;background:#fff;border:3px solid var(--brand-d)}
   .gaugekey .s-zone{width:16px;height:12px;border-radius:3px;border:1px solid var(--line)}
+  .radarwrap{text-align:center;margin-top:6px}
+  .radarwrap svg{width:100%;max-width:540px;height:auto}
+  .toolbar{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px}
+  .btn-sm{padding:9px 15px;font-size:.88rem}
+  .cmpbox{margin-top:12px;background:#f7fafb;border:1px solid var(--line);border-radius:12px;padding:14px}
+  .cmpbox p{font-size:.84rem;color:var(--muted);margin-bottom:8px}
+  .cmpbox textarea{width:100%;min-height:56px;font-family:"SF Mono",Menlo,Consolas,monospace;
+    font-size:.82rem;padding:9px 10px;border:1px solid var(--line);border-radius:9px;background:#fff;resize:vertical}
+  .cmpmsg{font-size:.84rem;margin-top:8px}
+  .cmpmsg.err{color:var(--bad)} .cmpmsg.ok{color:var(--good)}
+  .codeout{margin-top:10px;font-family:"SF Mono",Menlo,Consolas,monospace;font-size:.78rem;
+    background:#fff;border:1px solid var(--line);border-radius:9px;padding:9px 10px;word-break:break-all;color:var(--brand-d)}
   .legend{display:flex;flex-wrap:wrap;gap:16px;margin-top:14px;font-size:.82rem;color:var(--muted)}
   .legend span{display:flex;align-items:center;gap:6px}
   .note{font-size:.8rem;color:var(--muted);margin-top:14px;border-top:1px dashed var(--line);padding-top:12px}
@@ -210,6 +222,7 @@
   <!-- ================= ÉCRAN 3 : RÉSULTATS ================= -->
   <section id="screen-results" class="hidden">
     <div id="resultContent"></div>
+    <div id="radarCard"></div>
     <div class="actions noprint">
       <button class="btn btn-ghost" onclick="editAnswers()">← Modifier mes réponses</button>
       <div style="display:flex;gap:12px">
@@ -403,6 +416,8 @@ function editAnswers(){
 }
 function restart(){
   for(let i=0;i<N;i++){answers[i]=null;naFlags[i]=false;}
+  radarShown=false; cmpProfile=null;
+  document.getElementById('radarCard').innerHTML='';
   document.getElementById('patientId').value='';
   buildItems();
   document.getElementById('screen-results').classList.add('hidden');
@@ -487,6 +502,9 @@ function showResults(){
      <span><span class="s-zone" style="background:var(--warn-bg)"></span>−1 à −2 ET</span>
      <span><span class="s-zone" style="background:var(--bad-bg)"></span>&lt; −2 ET</span>
      <span><span class="s-you"></span>votre score</span>
+  </div>
+  <div class="toolbar noprint">
+     <button class="btn btn-ghost btn-sm" id="radarBtn" onclick="toggleRadar()">Afficher le profil radar</button>
   </div></div>`;
 
   // détail par item
@@ -528,6 +546,8 @@ function showResults(){
   html+=`</div>`;
 
   document.getElementById('resultContent').innerHTML=html;
+  drawRadar();   // conserve l'état d'affichage si on revient des réponses
+  if(radarShown) document.getElementById('radarBtn').textContent='Masquer le profil radar';
   document.getElementById('screen-quiz').classList.add('hidden');
   document.getElementById('screen-results').classList.remove('hidden');
   window.scrollTo(0,0);
@@ -571,6 +591,220 @@ function gauge(v,norm,sd,c,mini){
       <span class="norm" style="left:${pn}%"></span>
       <span class="you ${c}${off}" style="left:${pv}%"></span>
     </div>`;
+}
+
+/* ==================== PROFIL RADAR (15 items) ====================
+   Axes = les 15 items du score global (l'item 16, effort, est hors score).
+   Rayon gradué en écarts-types, comme les jauges : le centre vaut Z_MIN,
+   le bord Z_MAX. La norme est donc un cercle parfait, et les bornes
+   −1 ET / −2 ET deux cercles concentriques — ce qui ne serait pas le cas
+   avec des scores bruts, les normes variant d'un item à l'autre.
+   L'ordre des axes est celui du questionnaire : il ne doit pas changer,
+   sinon la silhouette du profil change avec lui. */
+const RADAR_N = 15;
+const SEC_COLOR = {parole:'#0f6d8c', spatiale:'#7a5ea8', qualite:'#1f7a5a'};
+/* Les trois sous-échelles occupent chacune un tiers du disque : 5 items
+   consécutifs. On les matérialise par un secteur teinté, des séparateurs
+   radiaux et un arc extérieur légendé. */
+const RADAR_SEC = [
+  {key:'parole',   label:'Audition de la parole', from:0,  to:4},
+  {key:'spatiale', label:'Audition spatiale',     from:5,  to:9},
+  {key:'qualite',  label:'Qualité d’audition',    from:10, to:14}
+];
+let radarShown = false, cmpProfile = null;
+
+function zOf(i){
+  if(naFlags[i] || answers[i]===null) return null;
+  return (answers[i]-ITEMS[i].norm)/ITEMS[i].sd;
+}
+
+function radarSVG(zs, cmp){
+  const S=620, c=S/2, R=182, N=RADAR_N;
+  const step = 2*Math.PI/N;
+  const ang = i => (-90 + i*360/N) * Math.PI/180;
+  const rOf = z => (Math.max(Z_MIN,Math.min(Z_MAX,z))-Z_MIN)/(Z_MAX-Z_MIN)*R;
+  const pt = (i,r) => [c+r*Math.cos(ang(i)), c+r*Math.sin(ang(i))];
+  const xy = (i,r) => pt(i,r).map(v=>v.toFixed(1)).join(',');
+  const pol = (a,r) => [c+r*Math.cos(a), c+r*Math.sin(a)];
+  const f2 = n => n.toFixed(1);
+  let s=`<svg id="radarSVG" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${S} ${S}" `
+      + `font-family="Helvetica,Arial,sans-serif" role="img" `
+      + `aria-label="Profil des 15 items en écarts-types par rapport aux normo-entendants">`;
+  s+=`<rect width="${S}" height="${S}" fill="#ffffff"/>`;
+  // zones concentriques (du plus large au plus étroit)
+  s+=`<circle cx="${c}" cy="${c}" r="${R}" fill="#e6f6ec"/>`;
+  s+=`<circle cx="${c}" cy="${c}" r="${rOf(-1).toFixed(1)}" fill="#fdf3e0"/>`;
+  s+=`<circle cx="${c}" cy="${c}" r="${rOf(-2).toFixed(1)}" fill="#fbe8ea"/>`;
+  // secteurs des trois sous-échelles : teinte légère + séparateurs + arc légendé
+  RADAR_SEC.forEach(sec=>{
+    const col=SEC_COLOR[sec.key];
+    const a0=ang(sec.from)-step/2, a1=ang(sec.to)+step/2;
+    const [x0,y0]=pol(a0,R), [x1,y1]=pol(a1,R);
+    const big=(a1-a0)>Math.PI?1:0;
+    s+=`<path d="M${f2(c)} ${f2(c)} L${f2(x0)} ${f2(y0)} A${R} ${R} 0 ${big} 1 ${f2(x1)} ${f2(y1)} Z" `
+      +`fill="${col}" fill-opacity=".07"/>`;
+    // séparateurs radiaux, prolongés jusque sous l'arc
+    [a0,a1].forEach(a=>{ const [sx,sy]=pol(a,R+42);
+      s+=`<line x1="${f2(c)}" y1="${f2(c)}" x2="${f2(sx)}" y2="${f2(sy)}" stroke="#aab9c2" stroke-width="1.2"/>`;
+    });
+    // arc extérieur
+    const ar=R+34, [ax0,ay0]=pol(a0+.02,ar), [ax1,ay1]=pol(a1-.02,ar);
+    s+=`<path d="M${f2(ax0)} ${f2(ay0)} A${ar} ${ar} 0 ${big} 1 ${f2(ax1)} ${f2(ay1)}" `
+      +`fill="none" stroke="${col}" stroke-width="7" stroke-linecap="round"/>`;
+    // nom de la sous-échelle, à l'aplomb du milieu de l'arc
+    // le nom est centré sur le milieu de l'arc, mais ramené dans le cadre
+    // quand le secteur tombe sur un bord (sinon « Qualité d'audition » déborde)
+    const am=(a0+a1)/2, [tx0,ty]=pol(am,R+62);
+    const tx=Math.max(80,Math.min(S-80,tx0));
+    s+=`<text x="${f2(tx)}" y="${f2(ty+4)}" font-size="12" font-weight="700" fill="${col}" `
+      +`text-anchor="middle" stroke="#ffffff" stroke-width="3.5" paint-order="stroke" `
+      +`stroke-linejoin="round">${sec.label}</text>`;
+  });
+  // axes
+  for(let i=0;i<N;i++) s+=`<line x1="${c}" y1="${c}" x2="${xy(i,R).split(',')[0]}" y2="${xy(i,R).split(',')[1]}" stroke="#cdd9e0" stroke-width="1"/>`;
+  // cercles de référence
+  s+=`<circle cx="${c}" cy="${c}" r="${rOf(-2).toFixed(1)}" fill="none" stroke="#b6c4cc" stroke-width="1"/>`;
+  s+=`<circle cx="${c}" cy="${c}" r="${rOf(-1).toFixed(1)}" fill="none" stroke="#b6c4cc" stroke-width="1"/>`;
+  s+=`<circle cx="${c}" cy="${c}" r="${rOf(0).toFixed(1)}" fill="none" stroke="#33434f" stroke-width="2"/>`;
+  // polygone de comparaison (passation antérieure)
+  if(cmp){
+    const pts=[]; cmp.forEach((z,i)=>{ if(z!==null&&i<N) pts.push(xy(i,rOf(z))); });
+    if(pts.length>2) s+=`<polygon points="${pts.join(' ')}" fill="none" stroke="#3d4d58" `
+      + `stroke-width="2.4" stroke-dasharray="7 4" stroke-linejoin="round"/>`;
+  }
+  // polygone du profil
+  const pts=[]; zs.forEach((z,i)=>{ if(z!==null&&i<N) pts.push(xy(i,rOf(z))); });
+  if(pts.length>2) s+=`<polygon points="${pts.join(' ')}" fill="#0f6d8c" fill-opacity=".14" stroke="#0f6d8c" stroke-width="2.5"/>`;
+  // points et numéros d'items
+  for(let i=0;i<N;i++){
+    const col = SEC_COLOR[ITEMS[i].sec] || '#0f6d8c';
+    const [lx,ly] = pt(i,R+17);
+    const z = zs[i];
+    if(z===null){
+      s+=`<text x="${lx.toFixed(1)}" y="${(ly+4).toFixed(1)}" font-size="12" fill="#b3c1c9" `
+        +`text-anchor="middle">${i+1}</text>`;
+    }else{
+      const fill = z>=-1 ? '#1f9d55' : (z>=-2 ? '#c47f00' : '#c62f42');
+      const [px,py] = pt(i,rOf(z));
+      s+=`<circle cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" r="4.5" fill="#fff" stroke="${fill}" stroke-width="2.5"/>`;
+      s+=`<text x="${lx.toFixed(1)}" y="${(ly+4).toFixed(1)}" font-size="12.5" font-weight="600" `
+        +`fill="${col}" text-anchor="middle">${i+1}</text>`;
+    }
+  }
+  // étiquettes des cercles — après les polygones, avec un liseré blanc
+  // pour rester lisibles quand le profil passe dessous
+  [[-2,'−2 ET'],[-1,'−1 ET'],[0,'norme']].forEach(([z,t])=>{
+    s+=`<text x="${c+6}" y="${(c-rOf(z)+12).toFixed(1)}" font-size="11" fill="#5b6b78" `
+      +`stroke="#ffffff" stroke-width="3.5" paint-order="stroke" stroke-linejoin="round">${t}</text>`;
+  });
+  // en-tête (utile sur l'image exportée)
+  const hid=(document.getElementById('patientId').value||'—');
+  const hdt=(document.getElementById('patientDate').value||'—');
+  s+=`<text x="18" y="26" font-size="13" font-weight="700" fill="#0b4f66">15iSSQ — profil par item</text>`;
+  s+=`<text x="18" y="44" font-size="11.5" fill="#7c8b95">ID : ${escapeHtml(hid)} · ${escapeHtml(hdt)}</text>`;
+  // légende (les sous-échelles sont déjà nommées sur les arcs)
+  s+=`<text x="${c}" y="${S-14}" font-size="11" fill="#7c8b95" text-anchor="middle">`
+    +`Rayon gradué en écarts-types (centre −${Math.abs(Z_MIN)} ET, bord +${Z_MAX} ET)`
+    +`${cmp?' · pointillé = passation antérieure':''}</text>`;
+  s+=`</svg>`;
+  return s;
+}
+
+function toggleRadar(){
+  radarShown=!radarShown;
+  document.getElementById('radarBtn').textContent =
+    radarShown ? 'Masquer le profil radar' : 'Afficher le profil radar';
+  drawRadar();
+}
+
+function drawRadar(){
+  const host=document.getElementById('radarCard');
+  if(!radarShown){ host.innerHTML=''; return; }
+  const zs=[]; for(let i=0;i<RADAR_N;i++) zs.push(zOf(i));
+  const na=zs.filter(z=>z===null).length;
+  host.innerHTML = `<div class="card">
+    <h2>Profil par item</h2>
+    <div class="radarwrap">${radarSVG(zs, cmpProfile)}</div>
+    ${na?`<p class="note" style="border:none;margin-top:4px">${na} item${na>1?'s':''} non applicable${na>1?'s':''} : l'axe est gris et le profil ne passe pas par ce point.</p>`:''}
+    <div class="toolbar noprint">
+      <button class="btn btn-ghost btn-sm" onclick="downloadRadar()">Télécharger l'image (PNG)</button>
+      <button class="btn btn-ghost btn-sm" onclick="toggleCmp()">Comparer à une passation</button>
+    </div>
+    <div id="cmpPanel"></div>
+  </div>`;
+}
+
+/* --- code de profil : chaîne compacte, ni serveur ni stockage --- */
+function profileCode(){
+  const id=(document.getElementById('patientId').value||'').replace(/[|]/g,'');
+  const dt=document.getElementById('patientDate').value||'';
+  const v=[]; for(let i=0;i<RADAR_N;i++){ const z=zOf(i); v.push(z===null?'x':answers[i].toFixed(1)); }
+  return `15iSSQ|${id}|${dt}|${v.join(',')}`;
+}
+
+function parseProfile(txt){
+  const p=String(txt).trim().split('|');
+  if(p.length<4 || p[0]!=='15iSSQ') return null;
+  const v=p[3].split(',');
+  if(v.length!==RADAR_N) return null;
+  const zs=[];
+  for(let i=0;i<RADAR_N;i++){
+    if(v[i]==='x'){ zs.push(null); continue; }
+    const n=parseFloat(v[i]);
+    if(!isFinite(n)||n<0||n>10) return null;
+    zs.push((n-ITEMS[i].norm)/ITEMS[i].sd);
+  }
+  return {zs:zs, id:p[1], date:p[2]};
+}
+
+function toggleCmp(){
+  const p=document.getElementById('cmpPanel');
+  if(p.innerHTML){ p.innerHTML=''; return; }
+  p.innerHTML=`<div class="cmpbox noprint">
+    <p>Collez ici le code d'une passation antérieure pour la superposer en pointillé.
+       Le code de la passation actuelle est donné en dessous : conservez-le pour un suivi ultérieur.</p>
+    <textarea id="cmpInput" placeholder="15iSSQ|ID|2026-01-15|8.5,7.0,…"></textarea>
+    <div class="toolbar">
+      <button class="btn btn-ghost btn-sm" id="cmpApply" onclick="applyCmp()">Superposer</button>
+      <button class="btn btn-ghost btn-sm" id="cmpClear" onclick="clearCmp()">Retirer</button>
+    </div>
+    <div id="cmpMsg"></div>
+    <div class="codeout">${escapeHtml(profileCode())}</div>
+  </div>`;
+}
+
+function applyCmp(){
+  const r=parseProfile(document.getElementById('cmpInput').value);
+  const m=document.getElementById('cmpMsg');
+  if(!r){ m.className='cmpmsg err'; m.textContent="Code non reconnu : il doit commencer par 15iSSQ et contenir 15 valeurs entre 0 et 10 (ou x)."; return; }
+  cmpProfile=r.zs;
+  drawRadar();   // referme le panneau : la superposition se lit sur le graphe
+}
+
+function clearCmp(){ cmpProfile=null; drawRadar(); }
+
+function downloadRadar(){
+  const svg=document.getElementById('radarSVG');
+  if(!svg) return;
+  const src=new XMLSerializer().serializeToString(svg);
+  const img=new Image();
+  img.onload=function(){
+    const k=2, cv=document.createElement('canvas');
+    cv.width=620*k; cv.height=620*k;
+    const cx=cv.getContext('2d');
+    cx.fillStyle='#fff'; cx.fillRect(0,0,cv.width,cv.height);
+    cx.drawImage(img,0,0,cv.width,cv.height);
+    const id=(document.getElementById('patientId').value||'profil').replace(/[^\w-]+/g,'_');
+    // toBlob + objectURL : plus robuste qu'une data-URL, qui devient énorme
+    // une fois l'image en 2x et que certains navigateurs refusent de télécharger
+    cv.toBlob(function(bl){
+      const u=URL.createObjectURL(bl);
+      const a=document.createElement('a');
+      a.download=`15iSSQ_${id}.png`; a.href=u; a.click();
+      setTimeout(()=>URL.revokeObjectURL(u),4000);
+    },'image/png');
+  };
+  img.src='data:image/svg+xml;base64,'+btoa(unescape(encodeURIComponent(src)));
 }
 
 function scorePill(v,norm,sd){
