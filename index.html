@@ -110,9 +110,28 @@
   .ecart.good{color:var(--good);font-weight:700}
   .ecart.warn{color:var(--warn);font-weight:700}
   .ecart.bad{color:var(--bad);font-weight:700}
-  .bar{position:relative;height:22px;background:#eef3f6;border-radius:6px;overflow:hidden;min-width:90px}
-  .bar>i{position:absolute;top:0;bottom:0;left:0;border-radius:6px;display:block}
-  .bar>.norm{position:absolute;top:-3px;bottom:-3px;width:2px;background:#33434f}
+  /* Jauge : position du score sur l'échelle 0-10, avec la moyenne des
+     normo-entendants et les bornes à 1 et 2 écarts-types en dessous. */
+  .gauge{position:relative;height:20px;min-width:130px;margin:2px 0}
+  .gauge .track{position:absolute;inset:0;border-radius:5px;overflow:hidden;background:#eef3f6}
+  .gauge .zone{position:absolute;top:0;bottom:0}
+  .gauge .lim{position:absolute;top:-2px;bottom:-2px;width:1px;background:#a3b3bd}
+  .gauge .norm{position:absolute;top:-4px;bottom:-4px;width:2px;background:#33434f;border-radius:1px}
+  .gauge .you{position:absolute;top:50%;width:14px;height:14px;margin:-7px 0 0 -7px;border-radius:50%;
+    background:#fff;border:3px solid var(--brand-d);box-shadow:0 1px 3px rgba(0,0,0,.28)}
+  .gauge .you.good{border-color:var(--good)}
+  .gauge .you.warn{border-color:var(--warn)}
+  .gauge .you.bad{border-color:var(--bad)}
+  .gauge .you.off{border-style:dashed}
+  .gauge.mini{height:16px;min-width:104px}
+  .gauge.mini .you{width:11px;height:11px;margin:-5.5px 0 0 -5.5px;border-width:2.5px}
+  .gaugekey{display:flex;flex-wrap:wrap;gap:6px 18px;align-items:center;margin-top:12px;
+    font-size:.8rem;color:var(--muted)}
+  .gaugekey span{display:flex;align-items:center;gap:6px}
+  .gaugekey .s-norm{width:2px;height:14px;background:#33434f;border-radius:1px}
+  .gaugekey .s-lim{width:1px;height:14px;background:#a3b3bd}
+  .gaugekey .s-you{width:12px;height:12px;border-radius:50%;background:#fff;border:3px solid var(--brand-d)}
+  .gaugekey .s-zone{width:16px;height:12px;border-radius:3px;border:1px solid var(--line)}
   .legend{display:flex;flex-wrap:wrap;gap:16px;margin-top:14px;font-size:.82rem;color:var(--muted)}
   .legend span{display:flex;align-items:center;gap:6px}
   .note{font-size:.8rem;color:var(--muted);margin-top:14px;border-top:1px dashed var(--line);padding-top:12px}
@@ -121,6 +140,9 @@
     body{background:#fff}
     .noprint{display:none!important}
     .card,.item{box-shadow:none;border:1px solid #ccc;page-break-inside:avoid}
+    /* sans cela, l'impression supprime les aplats et la jauge devient illisible */
+    .gauge,.gauge *,.gaugekey *,.dot,.pill{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    .gauge .track{border:1px solid #d6dfe5}
   }
 </style>
 </head>
@@ -454,25 +476,34 @@ function showResults(){
   html += `<div class="legend">
      <span><span class="dot good"></span>Dans la norme (≥ −1 ET)</span>
      <span><span class="dot warn"></span>Limite (−1 à −2 ET)</span>
-     <span><span class="dot bad"></span>Sous la norme (< −2 ET, seuil pathologique)</span>
+     <span><span class="dot bad"></span>Sous la norme (&lt; −2 ET)</span>
      <span>ET = écart-type des normo-entendants · NH = normo-entendant</span>
+  </div>
+  <div class="gaugekey">
+     <span><strong style="color:var(--ink)">Lecture de la jauge</strong> (axe en écarts-types, de −4 à +1,5 ET)&nbsp;:</span>
+     <span><span class="s-norm"></span>moyenne NH (0 ET)</span>
+     <span><span class="s-lim"></span>bornes −1 ET et −2 ET</span>
+     <span><span class="s-zone" style="background:var(--good-bg)"></span>≥ −1 ET</span>
+     <span><span class="s-zone" style="background:var(--warn-bg)"></span>−1 à −2 ET</span>
+     <span><span class="s-zone" style="background:var(--bad-bg)"></span>&lt; −2 ET</span>
+     <span><span class="s-you"></span>votre score</span>
   </div></div>`;
 
   // détail par item
   html += `<div class="card"><h2>Détail par question</h2>
     <table class="res"><thead><tr>
       <th style="width:26px">#</th><th class="q" style="text-align:left">Question</th>
-      <th>Score</th><th>Norme</th><th>Écart</th><th>Statut</th>
+      <th>Score</th><th>Norme</th><th>Écart</th><th>Visuel</th><th>Statut</th>
     </tr></thead><tbody>`;
   let curSec=null;
   ITEMS.forEach((it,i)=>{
     if(it.sec!==curSec){
       curSec=it.sec;
       const s=SECTIONS.find(x=>x.key===it.sec);
-      html+=`<tr class="sub"><td></td><td class="q">${s.label}</td><td colspan="4"></td></tr>`;
+      html+=`<tr class="sub"><td></td><td class="q">${s.label}</td><td colspan="5"></td></tr>`;
     }
     if(naFlags[i]){
-      html+=`<tr><td>${i+1}</td><td class="q">${shortQ(it)}</td><td>N/A</td><td>${it.norm.toFixed(1)}</td><td>—</td><td><span style="color:var(--muted)">Exclu</span></td></tr>`;
+      html+=`<tr><td>${i+1}</td><td class="q">${shortQ(it)}</td><td>N/A</td><td>${it.norm.toFixed(1)}</td><td>—</td><td>—</td><td><span style="color:var(--muted)">Exclu</span></td></tr>`;
     }else{
       const z=(answers[i]-it.norm)/it.sd;
       const ec=answers[i]-it.norm;
@@ -481,14 +512,18 @@ function showResults(){
         <td><strong>${answers[i].toFixed(1)}</strong></td>
         <td>${it.norm.toFixed(1)}</td>
         <td class="ecart ${c}">${ec>=0?'+':''}${ec.toFixed(1)}</td>
+        <td>${gauge(answers[i],it.norm,it.sd,c,true)}</td>
         <td><span class="dot ${c}"></span>${clsLabel(z)}</td></tr>`;
     }
   });
   html+=`</tbody></table>`;
   html+=`<p class="note"><strong>Lecture.</strong> « Écart » = votre score moins la moyenne des normo-entendants (points sur 10).
      Un écart négatif indique une performance perçue inférieure à celle des normo-entendants. Le statut compare cet écart
-     à l'écart-type de la population de référence ; en dessous de −2 écarts-types, la valeur atteint le seuil considéré
-     comme pathologique dans les données normatives. L'item 16 (effort) utilise une échelle inversée
+     à l'écart-type de la population de référence. La jauge place votre score sur un axe gradué en écarts-types :
+     le trait foncé marque la moyenne des normo-entendants, les deux traits fins les bornes à −1 et −2 écarts-types,
+     et les zones colorées les intervalles correspondants. L'axe étant le même partout, les jauges se comparent
+     directement d'une ligne à l'autre ; une pastille en pointillé signale un score hors de l'axe.
+     L'item 16 (effort) utilise une échelle inversée
      (${escapeHtml(ITEMS[15].normNote)}). Cet outil est une aide et ne remplace pas un bilan audiologique complet.</p>`;
   html+=`</div>`;
 
@@ -509,15 +544,33 @@ function subRow(name, s, sd, strong){
     <td${style}><strong>${s.mean.toFixed(2)}</strong></td>
     <td>${s.norm.toFixed(2)}</td>
     <td class="ecart ${c}">${ec>=0?'+':''}${ec.toFixed(2)}</td>
-    <td>${miniBar(s.mean,s.norm)}</td>
+    <td>${gauge(s.mean,s.norm,sd,c)}</td>
     <td><span class="dot ${c}"></span>${clsLabel(z)}</td></tr>`;
 }
 
-function miniBar(v,norm){
-  const w=Math.max(0,Math.min(100,v*10));
-  const nx=Math.max(0,Math.min(100,norm*10));
-  const col = v>=norm-0.001 ? 'var(--good)' : (v>=norm-1.5?'var(--warn)':'var(--bad)');
-  return `<div class="bar"><i style="width:${w}%;background:${col}"></i><span class="norm" style="left:${nx}%"></span></div>`;
+/* Jauge graduée en écarts-types autour de la moyenne des normo-entendants.
+   L'axe va de Z_MIN à Z_MAX ET : il est donc identique d'une ligne à l'autre,
+   ce qui rend les jauges directement comparables entre sous-échelles et items.
+   Repères : trait foncé = la norme (0 ET), traits fins = −1 ET et −2 ET. */
+const Z_MIN=-4, Z_MAX=1.5;
+function zpos(z){ return Math.max(0, Math.min(100, (z-Z_MIN)/(Z_MAX-Z_MIN)*100)); }
+function gauge(v,norm,sd,c,mini){
+  const p2=zpos(-2), p1=zpos(-1), pn=zpos(0);
+  const z=(v-norm)/sd, pv=zpos(z);
+  const off = z<Z_MIN ? ' off' : (z>Z_MAX ? ' off' : '');
+  const lbl = `Votre score ${v.toFixed(1)} sur 10 · norme ${norm.toFixed(1)} · `
+            + `${z>=0?'+':'−'}${Math.abs(z).toFixed(1)} écart-type`;
+  return `<div class="gauge${mini?' mini':''}" role="img" aria-label="${lbl}" title="${lbl}">
+      <div class="track">
+        <span class="zone" style="left:0;width:${p2}%;background:var(--bad-bg)"></span>
+        <span class="zone" style="left:${p2}%;width:${p1-p2}%;background:var(--warn-bg)"></span>
+        <span class="zone" style="left:${p1}%;right:0;background:var(--good-bg)"></span>
+      </div>
+      <span class="lim" style="left:${p2}%"></span>
+      <span class="lim" style="left:${p1}%"></span>
+      <span class="norm" style="left:${pn}%"></span>
+      <span class="you ${c}${off}" style="left:${pv}%"></span>
+    </div>`;
 }
 
 function scorePill(v,norm,sd){
