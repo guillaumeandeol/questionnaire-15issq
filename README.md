@@ -3,6 +3,12 @@
 Version électronique du questionnaire d'habiletés auditives **15iSSQ**
 (version française abrégée du *Speech, Spatial and Qualities of Hearing scale*).
 
+**Adresse publique : https://guillaumeandeol.github.io/questionnaire-15issq/**
+
+C'est l'adresse à communiquer aux collègues et aux participants. Le QR code
+correspondant est fourni dans ce dossier : `QR_15iSSQ_github.svg` pour
+l'impression, `QR_15iSSQ_github.png` pour l'écran.
+
 Application autonome : un seul fichier HTML, aucune dépendance, aucun serveur.
 Tout le calcul (scores par partie, comparaison aux normes normo-entendants,
 écarts en écarts-types) se fait dans le navigateur.
@@ -13,49 +19,59 @@ L'application ne transmet **aucune donnée** : rien n'est envoyé ni enregistré
 sur un serveur. Les réponses restent dans le navigateur du participant et
 disparaissent à la fermeture de la page.
 
-## Mise en ligne sur GitHub Pages
+## Déroulé
 
-1. Sur https://github.com, cliquez sur **New repository**.
-   Nom suggéré : `questionnaire-15issq`. Visibilité : **Public**
-   (nécessaire pour que Pages soit gratuit et que le lien s'ouvre sans compte).
-2. Envoyez le contenu de ce dossier à la racine du dépôt
-   (`index.html` et ce `README.md`) — par glisser-déposer via
-   **Add file → Upload files**, ou en ligne de commande (voir plus bas).
-3. Dans le dépôt : **Settings → Pages**.
-   Sous *Build and deployment*, choisissez **Source : Deploy from a branch**,
-   puis **Branch : `main`** et **dossier `/ (root)`**. Cliquez sur **Save**.
-4. Attendez une à deux minutes. L'adresse publique s'affiche en haut de cette
-   même page, sous la forme :
+1. Écran d'accueil : consignes, identifiant libre et date.
+2. Les 16 items, chacun avec un curseur de 0 à 10 et une case
+   « Non applicable » qui exclut l'item du calcul.
+   L'item 16 (effort d'écoute) utilise une échelle inversée.
+3. Page de résultats : score global, scores par partie (audition de la parole,
+   audition spatiale, qualité d'audition) et détail par question.
 
-   `https://guillaumeandeol.github.io/questionnaire-15issq/`
+## Lecture des résultats
 
-C'est cette adresse à communiquer aux collègues et aux participants.
+Chaque score est comparé à la moyenne des normo-entendants (normes Moulin
+et al. 2015) et l'écart est exprimé en écarts-types (ET) :
 
-### En ligne de commande
+| Statut | Écart à la norme |
+|---|---|
+| Dans la norme | ≥ −1 ET |
+| Limite | −1 à −2 ET |
+| Sous la norme | < −2 ET |
 
-```bash
-cd github_15iSSQ
-git init
-git add .
-git commit -m "Questionnaire 15iSSQ"
-git branch -M main
-git remote add origin https://github.com/guillaumeandeol/questionnaire-15issq.git
-git push -u origin main
-```
+La colonne **Visuel** place le score sur une jauge graduée en écarts-types
+(de −4 à +1,5 ET) : trait foncé sur la moyenne des normo-entendants, traits
+fins sur les bornes −1 ET et −2 ET, zones colorées pour les intervalles
+correspondants, pastille pour le score. L'axe étant le même sur toutes les
+lignes, les jauges se comparent directement entre sous-échelles et entre
+items — ce qui ne serait pas le cas sur une échelle 0-10, les écarts-types
+différant d'une sous-échelle à l'autre. Une pastille en pointillé signale un
+score situé hors de l'axe.
 
-Puis effectuez l'étape 3 ci-dessus.
+Cet outil est une aide : il ne remplace pas un bilan audiologique complet.
 
-## Adresse publique
+## Hébergement
 
-https://guillaumeandeol.github.io/questionnaire-15issq/
-
-Le QR code correspondant est fourni dans ce dossier
-(`QR_15iSSQ_github.svg` pour l'impression, `QR_15iSSQ_github.png` pour l'écran).
+Le site est publié par **GitHub Pages** depuis la branche `main`, dossier
+`/ (root)` (réglage dans *Settings → Pages*). Aucun fichier de configuration
+n'est nécessaire : GitHub sert directement `index.html`.
 
 ## Mise à jour
 
 Remplacez `index.html` et validez (commit) : le site se republie
-automatiquement en une ou deux minutes.
+automatiquement en une ou deux minutes. Le plus simple depuis le navigateur :
+**Add file → Upload files**, puis glissez le nouveau fichier — GitHub le
+reconnaît comme une mise à jour.
+
+En ligne de commande :
+
+```bash
+git clone https://github.com/guillaumeandeol/questionnaire-15issq.git
+cd questionnaire-15issq
+# remplacer index.html par la nouvelle version
+git commit -am "Mise à jour du questionnaire"
+git push
+```
 
 Si une ancienne version s'affiche encore chez un collègue, c'est le cache du
 navigateur : Ctrl+Maj+R (Cmd+Maj+R sur Mac) force le rechargement.
@@ -63,4 +79,9 @@ navigateur : Ctrl+Maj+R (Cmd+Maj+R sur Mac) force le rechargement.
 ## Impression / archivage
 
 Le bouton **Imprimer / PDF** de la page de résultats produit un compte rendu
-imprimable ou enregistrable en PDF.
+imprimable ou enregistrable en PDF, jauges comprises.
+
+## Références
+
+Items et normes : Moulin et al. 2015 & 2019 (PAM / CRNL), validation française
+du SSQ.
