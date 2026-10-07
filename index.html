@@ -229,6 +229,7 @@
       <button class="btn btn-ghost" onclick="editAnswers()">← Modifier mes réponses</button>
       <div style="display:flex;gap:12px;flex-wrap:wrap">
         <button class="btn btn-ghost" onclick="exportCSV()">Exporter en CSV</button>
+        <button class="btn btn-ghost" onclick="sendMail()">Envoyer par e-mail</button>
         <button class="btn btn-ghost" onclick="window.print()">Imprimer / PDF</button>
         <button class="btn btn-primary" onclick="restart()">Nouveau questionnaire</button>
       </div>
@@ -752,6 +753,41 @@ function csvCell(v){
   return /[";\n\r]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s;
 }
 function num(v,d){ return (v===null||v===undefined||!isFinite(v)) ? '' : v.toFixed(d).replace('.',','); }
+
+/* ==================== ENVOI PAR E-MAIL ====================
+   Ouvre le client de messagerie de l'appareil (lien mailto:) avec un message
+   pré-rempli. Rien n'est transmis par l'application elle-même, et un lien
+   mailto ne peut pas joindre de fichier : le corps contient donc un résumé
+   des scores et le code de profil. L'utilisateur relit puis envoie. */
+const MAIL_TO = 'guillaume.andeol@intradef.gouv.fr';
+const MAIL_SUBJECT = 'test SSQ';
+
+function sendMail(){
+  if(answeredCount()<N) return;
+  const id=document.getElementById('patientId').value||'—';
+  const dt=document.getElementById('patientDate').value||'—';
+  const sub=computeSub();
+  const line=(label,k)=>{
+    const s=sub[k]; if(!s) return `${label} : —`;
+    const z=(s.mean-s.norm)/subSD[k];
+    return `${label} : ${s.mean.toFixed(2)} / 10 (norme ${s.norm.toFixed(2)}) — ${clsLabel(z)}`;
+  };
+  const body=[
+    'Bonjour,','',
+    'Résultats 15iSSQ',
+    `ID : ${id}`,
+    `Date : ${dt}`,'',
+    line('Score global (15 items)','global'),
+    line('Audition de la parole','parole'),
+    line('Audition spatiale','spatiale'),
+    line('Qualité d’audition','qualite'),'',
+    'Code de profil :',
+    profileCode()
+  ].join('\r\n');
+  window.location.href='mailto:'+MAIL_TO
+    +'?subject='+encodeURIComponent(MAIL_SUBJECT)
+    +'&body='+encodeURIComponent(body);
+}
 
 function exportCSV(){
   if(answeredCount()<N) return;
