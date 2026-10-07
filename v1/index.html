@@ -77,6 +77,9 @@
     border:3px solid var(--brand);box-shadow:0 1px 4px rgba(0,0,0,.25)}
   input[type=range].untouched::-webkit-slider-thumb{opacity:.25;border-color:#9bb2bd}
   input[type=range].untouched::-moz-range-thumb{opacity:.25;border-color:#9bb2bd}
+  .valbox{flex:0 0 auto;width:58px;text-align:center;font-weight:700;font-size:1.15rem;
+    color:var(--brand-d);background:var(--brand-l);border-radius:10px;padding:6px 0}
+  .valbox.empty{color:#b3c1c9;background:#f0f4f6;font-weight:600}
   /* Les graduations sont positionnées sur la course réelle du curseur :
      le centre du bouton va de 13px (=moitié du bouton) à (100% - 13px). */
   .ticks{position:relative;height:15px;font-size:.72rem;color:#9aa8b1;margin-top:2px}
@@ -129,14 +132,8 @@
   .gaugekey .s-lim{width:1px;height:14px;background:#a3b3bd}
   .gaugekey .s-you{width:12px;height:12px;border-radius:50%;background:#fff;border:3px solid var(--brand-d)}
   .gaugekey .s-zone{width:16px;height:12px;border-radius:3px;border:1px solid var(--line)}
-  .radarwrap{text-align:center}
+  .radarwrap{text-align:center;margin-top:6px}
   .radarwrap svg{width:100%;max-width:540px;height:auto}
-  /* Radar affiché à côté de ses boutons (empilé sur petit écran) */
-  .radarzone{display:flex;flex-wrap:wrap;gap:18px;align-items:flex-start;margin-top:14px}
-  .radarside{flex:0 0 230px;max-width:100%;display:flex;flex-direction:column;align-items:stretch;gap:10px}
-  .radarside .cmpbox{margin-top:0}
-  .radarmain{flex:1 1 340px;min-width:0}
-  .radarmain h3{font-size:.95rem;margin:0 0 6px;color:var(--brand-d)}
   .toolbar{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px}
   .btn-sm{padding:9px 15px;font-size:.88rem}
   .cmpbox{margin-top:12px;background:#f7fafb;border:1px solid var(--line);border-radius:12px;padding:14px}
@@ -225,10 +222,10 @@
   <!-- ================= ÉCRAN 3 : RÉSULTATS ================= -->
   <section id="screen-results" class="hidden">
     <div id="resultContent"></div>
+    <div id="radarCard"></div>
     <div class="actions noprint">
       <button class="btn btn-ghost" onclick="editAnswers()">← Modifier mes réponses</button>
-      <div style="display:flex;gap:12px;flex-wrap:wrap">
-        <button class="btn btn-ghost" onclick="exportCSV()">Exporter en CSV</button>
+      <div style="display:flex;gap:12px">
         <button class="btn btn-ghost" onclick="window.print()">Imprimer / PDF</button>
         <button class="btn btn-primary" onclick="restart()">Nouveau questionnaire</button>
       </div>
@@ -345,6 +342,7 @@ function buildItems(){
                    id="range-${i}" oninput="onSlide(${i})" aria-label="Réponse question ${i+1}">
             <div class="ticks">${TICKS}</div>
           </div>
+          <div class="valbox empty" id="val-${i}">—</div>
         </div>
       </div>
       <div class="naline">
@@ -362,6 +360,9 @@ function onSlide(i){
   r.classList.remove('untouched');
   const v = parseFloat(r.value);
   answers[i]=v;
+  const vb = document.getElementById('val-'+i);
+  vb.textContent = v.toFixed(1);
+  vb.classList.remove('empty');
   document.getElementById('item-'+i).classList.replace('pending','done');
   updateProgress();
 }
@@ -370,13 +371,16 @@ function onNA(i){
   const na = document.getElementById('na-'+i).checked;
   naFlags[i]=na;
   const r = document.getElementById('range-'+i);
+  const vb = document.getElementById('val-'+i);
   const item = document.getElementById('item-'+i);
   if(na){
     answers[i]=null;
     r.disabled=true; r.classList.add('untouched');
+    vb.textContent='N/A'; vb.classList.remove('empty');
     item.classList.remove('pending'); item.classList.add('done');
   }else{
     r.disabled=false; r.classList.add('untouched');
+    vb.textContent='—'; vb.classList.add('empty');
     item.classList.remove('done'); item.classList.add('pending');
   }
   updateProgress();
@@ -413,6 +417,7 @@ function editAnswers(){
 function restart(){
   for(let i=0;i<N;i++){answers[i]=null;naFlags[i]=false;}
   radarShown=false; cmpProfile=null;
+  document.getElementById('radarCard').innerHTML='';
   document.getElementById('patientId').value='';
   buildItems();
   document.getElementById('screen-results').classList.add('hidden');
@@ -442,26 +447,21 @@ function subscale(idx){
 }
 
 /* ---------- résultats ---------- */
-const IDX = {
-  parole:   [0,1,2,3,4],
-  spatiale: [5,6,7,8,9],
-  qualite:  [10,11,12,13,14],                       // 5 items standard (hors effort)
-  global:   [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14]    // 15 items 15iSSQ
-};
-// SD de référence par sous-échelle (Moulin 2015)
-const subSD = {parole:1.02, spatiale:1.46, qualite:0.90, global:1.00};
-function computeSub(){
-  return {
-    parole:   subscale(IDX.parole),
-    spatiale: subscale(IDX.spatiale),
-    qualite:  subscale(IDX.qualite),
-    global:   subscale(IDX.global)
-  };
-}
-
 function showResults(){
   if(answeredCount()<N) return;
-  const sub = computeSub();
+  const idxParole   =[0,1,2,3,4];
+  const idxSpatiale =[5,6,7,8,9];
+  const idxQualite  =[10,11,12,13,14];      // 5 items standard (hors effort)
+  const idxGlobal   =[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14]; // 15 items 15iSSQ
+
+  const sub = {
+    parole:   subscale(idxParole),
+    spatiale: subscale(idxSpatiale),
+    qualite:  subscale(idxQualite),
+    global:   subscale(idxGlobal)
+  };
+  // SD de référence par sous-échelle (Moulin 2015)
+  const subSD = {parole:1.02, spatiale:1.46, qualite:0.90, global:1.00};
 
   const id=document.getElementById('patientId').value||'—';
   const dt=document.getElementById('patientDate').value||'—';
@@ -503,7 +503,9 @@ function showResults(){
      <span><span class="s-zone" style="background:var(--bad-bg)"></span>&lt; −2 ET</span>
      <span><span class="s-you"></span>votre score</span>
   </div>
-  <div class="radarzone" id="radarZone"></div></div>`;
+  <div class="toolbar noprint">
+     <button class="btn btn-ghost btn-sm" id="radarBtn" onclick="toggleRadar()">Afficher le profil radar</button>
+  </div></div>`;
 
   // détail par item
   html += `<div class="card"><h2>Détail par question</h2>
@@ -545,6 +547,7 @@ function showResults(){
 
   document.getElementById('resultContent').innerHTML=html;
   drawRadar();   // conserve l'état d'affichage si on revient des réponses
+  if(radarShown) document.getElementById('radarBtn').textContent='Masquer le profil radar';
   document.getElementById('screen-quiz').classList.add('hidden');
   document.getElementById('screen-results').classList.remove('hidden');
   window.scrollTo(0,0);
@@ -709,86 +712,26 @@ function radarSVG(zs, cmp){
 
 function toggleRadar(){
   radarShown=!radarShown;
+  document.getElementById('radarBtn').textContent =
+    radarShown ? 'Masquer le profil radar' : 'Afficher le profil radar';
   drawRadar();
 }
 
-/* Le radar s'affiche à droite de ses boutons (colonne de gauche) ; sur petit
-   écran, il passe en dessous. */
 function drawRadar(){
-  const host=document.getElementById('radarZone');
-  if(!host) return;
-  let side = `<div class="radarside noprint">
-      <button class="btn btn-ghost btn-sm" id="radarBtn" onclick="toggleRadar()">${radarShown?'Masquer le profil radar':'Afficher le profil radar'}</button>`;
-  if(radarShown){
-    side += `
+  const host=document.getElementById('radarCard');
+  if(!radarShown){ host.innerHTML=''; return; }
+  const zs=[]; for(let i=0;i<RADAR_N;i++) zs.push(zOf(i));
+  const na=zs.filter(z=>z===null).length;
+  host.innerHTML = `<div class="card">
+    <h2>Profil par item</h2>
+    <div class="radarwrap">${radarSVG(zs, cmpProfile)}</div>
+    ${na?`<p class="note" style="border:none;margin-top:4px">${na} item${na>1?'s':''} non applicable${na>1?'s':''} : l'axe est gris et le profil ne passe pas par ce point.</p>`:''}
+    <div class="toolbar noprint">
       <button class="btn btn-ghost btn-sm" onclick="downloadRadar()">Télécharger l'image (PNG)</button>
       <button class="btn btn-ghost btn-sm" onclick="toggleCmp()">Comparer à une passation</button>
-      <div id="cmpPanel"></div>`;
-  }
-  side += `</div>`;
-  let main = '';
-  if(radarShown){
-    const zs=[]; for(let i=0;i<RADAR_N;i++) zs.push(zOf(i));
-    const na=zs.filter(z=>z===null).length;
-    main = `<div class="radarmain">
-      <h3>Profil par item</h3>
-      <div class="radarwrap">${radarSVG(zs, cmpProfile)}</div>
-      ${na?`<p class="note" style="border:none;margin-top:4px">${na} item${na>1?'s':''} non applicable${na>1?'s':''} : l'axe est gris et le profil ne passe pas par ce point.</p>`:''}
-    </div>`;
-  }
-  host.innerHTML = side + main;
-}
-
-/* ==================== EXPORT CSV ====================
-   Format « long » : une ligne par item, puis une par sous-échelle et le score
-   global. Séparateur « ; » et virgule décimale (ouverture directe dans Excel
-   FR ; read.csv2 sous R ; pd.read_csv(sep=';', decimal=',') sous Python),
-   UTF-8 avec BOM pour les accents. */
-function csvCell(v){
-  if(v===null||v===undefined) return '';
-  let s = String(v);
-  // neutralise l'injection de formule (sauf nombres, y compris négatifs)
-  if(/^[=+\-@\t\r]/.test(s) && !/^-?\d+(,\d+)?$/.test(s)) s = "'" + s;
-  return /[";\n\r]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s;
-}
-function num(v,d){ return (v===null||v===undefined||!isFinite(v)) ? '' : v.toFixed(d).replace('.',','); }
-
-function exportCSV(){
-  if(answeredCount()<N) return;
-  const id=document.getElementById('patientId').value||'';
-  const dt=document.getElementById('patientDate').value||'';
-  const head=['id','date','niveau','item','partie','question','score','norme_NH','ET_NH','ecart','z','statut'];
-  const rows=[head];
-
-  ITEMS.forEach((it,i)=>{
-    const s=SECTIONS.find(x=>x.key===it.sec).label;
-    if(naFlags[i]){
-      rows.push([id,dt,'item',i+1,s,it.q,'',num(it.norm,1),num(it.sd,1),'','','N/A']);
-    }else{
-      const ec=answers[i]-it.norm, z=ec/it.sd;
-      rows.push([id,dt,'item',i+1,s,it.q,num(answers[i],1),num(it.norm,1),num(it.sd,1),
-                 num(ec,2),num(z,2),clsLabel(z)+(it.effort?' (échelle inversée)':'')]);
-    }
-  });
-
-  const sub=computeSub();
-  [['parole','Audition de la parole'],['spatiale','Audition spatiale'],
-   ['qualite','Qualité d’audition'],['global','Score global (15 items)']].forEach(([k,label])=>{
-    const s=sub[k], sd=subSD[k];
-    if(!s){ rows.push([id,dt,k==='global'?'global':'sous-échelle','',label,'','','','','','','']); return; }
-    const ec=s.mean-s.norm, z=ec/sd;
-    rows.push([id,dt,k==='global'?'global':'sous-échelle','',label,'',num(s.mean,2),num(s.norm,2),num(sd,2),
-               num(ec,2),num(z,2),clsLabel(z)]);
-  });
-
-  const csv='﻿'+rows.map(r=>r.map(csvCell).join(';')).join('\r\n')+'\r\n';
-  const bl=new Blob([csv],{type:'text/csv;charset=utf-8'});
-  const u=URL.createObjectURL(bl);
-  const a=document.createElement('a');
-  const safe=(id||'resultats').replace(/[^\w-]+/g,'_');
-  a.download=`15iSSQ_${safe}_${dt||'sans-date'}.csv`; a.href=u;
-  document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(()=>URL.revokeObjectURL(u),4000);
+    </div>
+    <div id="cmpPanel"></div>
+  </div>`;
 }
 
 /* --- code de profil : chaîne compacte, ni serveur ni stockage --- */

@@ -10,6 +10,11 @@ correspondant est fourni dans ce dossier : `QR_15iSSQ_github.svg` pour
 l'impression, `QR_15iSSQ_github.png` pour l'écran.
 
 Application autonome : un seul fichier HTML, aucune dépendance, aucun serveur.
+
+## Versions
+
+- **V2** (courante) : `index.html` — radar affiché à côté de ses boutons, export CSV des résultats, curseur sans valeur numérique affichée.
+- **V1** (précédente, conservée) : `v1/index.html` — https://guillaumeandeol.github.io/questionnaire-15issq/v1/
 Tout le calcul (scores par partie, comparaison aux normes normo-entendants,
 écarts en écarts-types) se fait dans le navigateur.
 
